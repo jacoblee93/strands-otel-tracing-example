@@ -1,0 +1,60 @@
+import os
+from strands import Agent
+from strands_tools import file_read, file_write, python_repl, shell, journal
+from strands.models import BedrockModel
+from strands.telemetry import StrandsTelemetry
+from opentelemetry import trace
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+import logging
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+# logging.getLogger("strands").setLevel(logging.INFO)
+
+os.environ["AWS_REGION"] = "us-east-2"
+os.environ["BYPASS_TOOL_CONSENT"] = "true"
+os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = (
+    "<langsmith-endpoint>/api/v1/otel"
+)
+os.environ["OTEL_EXPORTER_OTLP_HEADERS"]  = (
+    "x-api-key=<api-key>,Langsmith-Project=<project>"
+)
+
+strands_telemetry = StrandsTelemetry()
+strands_telemetry.setup_otlp_exporter()
+strands_telemetry.setup_console_exporter()
+strands_telemetry.setup_meter(enable_console_exporter=False, enable_otlp_exporter=False)
+
+def create_model():
+    return BedrockModel(model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0")
+
+
+def review_file(agent, file_path):
+    prompt = f"Do a short review of {file_path}. Focus on key functionality."
+    return agent(prompt)
+
+
+def main():
+    agent = Agent(
+        tools=[file_read, file_write, python_repl, shell, journal],
+        system_prompt="You are an Expert Software Developer specializing in web frameworks. Your task is to analyze project structures and identify mappings.",
+        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    )
+    
+    # Invocation 
+    tracer = trace.get_tracer(__name__)
+    with tracer.start_as_current_span("call_strands") as span:
+        input = "Do a short review of <file-path>. Focus on key functionality."
+        span.set_attribute(f"gen_ai.prompt.0.content", input)
+        span.set_attribute(f"gen_ai.prompt.0.role", "user")
+        response = agent(input)
+        output_text = getattr(response, "output", str(response))
+        span.set_attribute(f"gen_ai.completion.0.content", output_text)
+        span.set_attribute(f"gen_ai.completion.0.role", "ai")
+
+
+if __name__ == "__main__":
+    main()
