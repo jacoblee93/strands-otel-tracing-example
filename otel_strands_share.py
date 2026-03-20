@@ -1,14 +1,9 @@
-import os
+from dotenv import load_dotenv
+from opentelemetry import trace
 from strands import Agent
-from strands_tools import file_read, file_write, python_repl, shell, journal
 from strands.models import BedrockModel
 from strands.telemetry import StrandsTelemetry
-from opentelemetry import trace
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-import logging
-from dotenv import load_dotenv
-
+from strands_tools import file_read, file_write, journal, python_repl, shell
 
 load_dotenv()
 
@@ -22,10 +17,9 @@ strands_telemetry.setup_console_exporter()
 strands_telemetry.setup_meter(enable_console_exporter=False, enable_otlp_exporter=False)
 
 
-
 # Create and invoke strands agent
 def create_model():
-    return BedrockModel(model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0")
+    return BedrockModel(model_id="global.anthropic.claude-sonnet-4-5-20250929-v1:0")
 
 
 def review_file(agent, file_path):
@@ -37,13 +31,15 @@ def main():
     agent = Agent(
         tools=[file_read, file_write, python_repl, shell, journal],
         system_prompt="You are an Expert Software Developer specializing in web frameworks. Your task is to analyze project structures and identify mappings.",
-        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        model="global.anthropic.claude-sonnet-4-5-20250929-v1:0",
     )
-    
-    # Invocation 
+
+    # Invocation
     tracer = trace.get_tracer(__name__)
     with tracer.start_as_current_span("call_strands") as span:
-        input = "Do a short review of otel_strands_share.py. Focus on key functionality."
+        input = (
+            "Do a short review of otel_strands_share.py. Focus on key functionality."
+        )
         span.set_attribute(f"gen_ai.prompt.0.content", input)
         span.set_attribute(f"gen_ai.prompt.0.role", "user")
         response = agent(input)

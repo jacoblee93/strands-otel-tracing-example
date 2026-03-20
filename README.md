@@ -7,7 +7,7 @@ Clone the repo
 
 ### Clone the repo
 ```
-git clone https://github.com/catherine-langchain/strands-example
+git clone https://github.com/langchain-ai/strands-otel-tracing-example
 ```
 
 ### Create an environment variables file
