@@ -151,7 +151,7 @@ class LangSmithSpanExporter(SpanExporter):
         if input_messages:
             new_attrs["gen_ai.prompt"] = json.dumps({"messages": input_messages})
         if output_messages:
-            new_attrs["gen_ai.completion"] = json.dumps({"messages": output_messages})
+            new_attrs["gen_ai.completion"] = json.dumps(output_messages[-1])
 
         # Map gen_ai.operation.name to langsmith.span.kind (run type)
         operation = new_attrs.get("gen_ai.operation.name", "")
@@ -159,9 +159,14 @@ class LangSmithSpanExporter(SpanExporter):
         if run_type:
             new_attrs["langsmith.span.kind"] = run_type
 
+        # For LLM spans, set the provider metadata and display name.
         # Strands hardcodes gen_ai.system to "strands-agents" regardless of
-        # backend, but LangSmith uses it for ls_provider.
-        new_attrs["gen_ai.system"] = "amazon_bedrock"
+        # backend, so we use langsmith.metadata.ls_provider to surface the
+        # actual provider.
+        # TODO: Detect non-Bedrock providers
+        if run_type == "llm" and new_attrs.get("gen_ai.system"):
+            new_attrs["langsmith.metadata.ls_provider"] = "amazon_bedrock"
+            new_attrs["langsmith.metadata.ls_model_type"] = "chat"
 
         return ReadableSpan(
             name=span.name,
