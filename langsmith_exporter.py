@@ -159,6 +159,10 @@ class LangSmithSpanExporter(SpanExporter):
         if run_type:
             new_attrs["langsmith.span.kind"] = run_type
 
+        # Strands hardcodes gen_ai.system to "strands-agents" regardless of
+        # backend, but LangSmith uses it for ls_provider.
+        new_attrs["gen_ai.system"] = "amazon_bedrock"
+
         return ReadableSpan(
             name=span.name,
             context=span.context,
